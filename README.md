@@ -36,4 +36,5 @@ MSGsize: 20 val:D-STAR newbe
 # TODO
 * <del> Decode D-Star header
 * <del> Decode GPS coord?
-* Send same data to serial and BT as IC-705 does (images, text messages) 
+* Send same data to serial and BT as IC-705 does (images, text messages)
+* Use SX1278 AFC (automatic frequency correction) to correct XTAL offset and thermal drifft
