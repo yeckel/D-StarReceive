@@ -1,5 +1,6 @@
 #include "BitSlicer.h"
 #include <string.h>
+//#include <Streaming.h>
 
 bool BitSlicer::appendBit(bool bit)
 {
@@ -17,6 +18,7 @@ bool BitSlicer::appendBit(bool bit)
         if(totalReceivedBits <= HEADER_BITSIZE)
         {
             m_headerBuff[receivedByteNr] = receivedByte;
+            //            Serial << _HEX(receivedByte) << " ";
             if(totalReceivedBits == HEADER_BITSIZE)
             {
                 m_headerBuff[receivedByteNr] &= 0xF0;
@@ -40,9 +42,10 @@ bool BitSlicer::appendBit(bool bit)
 void BitSlicer::reset()
 {
     dataFrameCount = 0;
-    bitInHeader = 0;
+    bitInHeader = 7;
     receivedByteNr = 0;
     totalReceivedBits = 0;
+    receivedByte = 0;
 }
 
 void BitSlicer::setBuffer(uint8_t* headerBuff, uint headerBuffSize, uint8_t* dataBuff, uint dataBuffSize)
