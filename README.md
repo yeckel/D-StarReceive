@@ -38,3 +38,9 @@ MSGsize: 20 val:D-STAR newbe
 * <del> Decode GPS coord?
 * Send same data to serial and BT as IC-705 does (images, text messages)
 * Use SX1278 AFC (automatic frequency correction) to correct XTAL offset and thermal drifft
+* ?DV Fast data?
+
+##Notes
+* D-Star SMS message is transmitted in format: ```$$Msg,OK1CHP,OK1LOL,001172ahoj 0xA2, 0xD, 0x0``` no clue what that 001172 means
+* D-Star Image block is transmitted as ```$$Pic readable bytes 0x0D``` 
+All those ICOM extensions are sent as a message type 0x30 and are thus dumped directly into serial port
