@@ -1,4 +1,5 @@
 #include "Scrambler.h"
+#include <string.h>
 
 namespace
 {
@@ -12,6 +13,11 @@ bool isSyncFrame(uint8_t* buff)
            buff[11] == syncFrame[2];
 }
 
+void getSyncFrame(uint8_t* buff)
+{
+    memset(buff, 0xFF, 9);
+}
+
 uint8_t reverse(uint8_t b)
 {
     b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
@@ -20,7 +26,7 @@ uint8_t reverse(uint8_t b)
     return b;
 }
 
-void scramble(uint8_t* buff, uint size)
+void scrambleReverseInput(uint8_t* buff, uint size)
 {
     if(size > sizeof(scrablerData))
     {
@@ -32,3 +38,17 @@ void scramble(uint8_t* buff, uint size)
         buff[i] = b_r ^ scrablerData[i];
     }
 }
+
+void scrambleReverseOutput(uint8_t* buff, uint size)
+{
+    if(size > sizeof(scrablerData))
+    {
+        return;
+    }
+    for(uint8_t i = 0; i < size; i++)
+    {
+        buff[i] = reverse(buff[i] ^ scrablerData[i]);
+    }
+}
+
+

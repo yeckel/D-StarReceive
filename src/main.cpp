@@ -1,4 +1,5 @@
 #include "Arduino.h"
+#include <BluetoothSerial.h>
 #include <RadioLib.h>
 #include <Streaming.h>
 #include "BitSlicer.h"
@@ -28,8 +29,9 @@ volatile bool receivedPacket = false;
 
 BitMatcher bm(endSyncData, sizeof(endSyncData));
 uint8_t headerBuff[BitSlicer::HEADER_SIZE];
-uint8_t dataBuff[70 * BitSlicer::DATA_FRAME_SIZE];
+uint8_t dataBuff[1024 * BitSlicer::DATA_FRAME_SIZE];
 BitSlicer bs;
+BluetoothSerial SerialBT;
 
 void checkLoraState(int state)
 {
@@ -103,6 +105,8 @@ void decodeHeader(uint8_t* bufferConv)
 void setup()
 {
     Serial.begin(115200);
+    pinMode(LED_BUILTIN, OUTPUT);
+    SerialBT.begin("D-Star Beacon");
     bs.setBuffer(headerBuff, sizeof(headerBuff), dataBuff, sizeof(dataBuff));
     Dstar.size_buffer = BUFSIZE;
     pinMode(LORA_IO2, INPUT);
@@ -110,6 +114,7 @@ void setup()
     radio.reset();
     Serial.print(F("[SX1278] Initializing ... "));
     checkLoraState(radio.beginFSK(f, 4.8f, 4.8 * 0.25f, 25.0f, 3, 64, false));
+    radio.getFrequencyError(true);
     /// Uncomment to fine tune the radio and find sx1278 frequency offset
     MorseClient morse(&radio);
     morse.begin(f);
@@ -134,25 +139,34 @@ void processPacket()
     {
         if(!isSyncFrame(dataBuff + i * BitSlicer::DATA_FRAME_SIZE))
         {
-            scramble(dataBuff + i * BitSlicer::DATA_FRAME_SIZE, BitSlicer::DATA_FRAME_SIZE);
+            scrambleReverseInput(dataBuff + i * BitSlicer::DATA_FRAME_SIZE, BitSlicer::DATA_FRAME_SIZE);
             sa.receiveData(dataBuff + i * BitSlicer::DATA_FRAME_SIZE + 9);
         }
         //        for(uint j = 0; j < BitSlicer::DATA_FRAME_SIZE; j++)
         //        {
         //            Serial << "0x" << _HEX(dataBuff[i * BitSlicer::DATA_FRAME_SIZE + j]) << ",";
         //        }
-        //        Serial << endl;
+        Serial << endl;
     }
     Serial << endl;
     {
         uint16_t size{0};
         uint8_t* dStarData = sa.getDStarGPSData(size);
-        Serial << "GPSData size: " << size << " val:";
         for(uint16_t i = 0; i < size ; i++)
         {
-            if(dStarData[i] == 0x0d)
+            SerialBT.write(dStarData[i]);
+        }
+        Serial << "GPSData size: " << size << " val:";
+        //        for(uint16_t i = 0; i < size ; i++)
+        //        {
+        //            Serial << "0x" << _HEX(dStarData[i]) << ",";
+        //        }
+        //        Serial << endl;
+        for(uint16_t i = 0; i < size ; i++)
+        {
+            if(dStarData[i] < 0x20 || dStarData[i] > 0x7E)
             {
-                break;
+                Serial << " 0x" << _HEX(dStarData[i]) << ",";
             }
             else
             {
@@ -185,8 +199,10 @@ void processPacket()
 
 void loop()
 {
+    digitalWrite(BUILTIN_LED, SerialBT.connected());
     if(receivedPacket)
     {
+        Serial << "Freq: " << radio.getFrequencyError(true) << endl;
         if(bs.haveHeader())
         {
             decodeHeader(headerBuff);
