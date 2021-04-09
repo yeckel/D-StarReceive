@@ -12,6 +12,7 @@ namespace
     static constexpr uint8_t PKT_TYPE_GPS{0x30};
     static constexpr uint8_t PKT_TYPE_HEADER{0x50};//repeatet RF header
     static constexpr uint8_t PKT_TYPE_SQUELCH{0x20};
+    static constexpr uint8_t PKT_TYPE_FILL{0x60};
     static constexpr uint8_t FILLER_BYTE{0x66};
     static constexpr uint8_t BYTES_PER_PACKET{5}; //2+3
     static constexpr uint32_t syncFrame{0x0068b4aa};//101010101011010001101000 every 1st and 21th !!DATA!! frame
@@ -52,7 +53,7 @@ void SlowAmbe::sendPlainData(uint8_t* buff, bool isFirst)
         {
             m_outputStream->write(ch);
         }
-        Serial << "0x" << _HEX(ch) << " ";
+        //        Serial << "0x" << _HEX(ch) << " ";
     }
 }
 
@@ -94,12 +95,14 @@ void SlowAmbe::receiveData(uint8_t* buff)
         case PKT_TYPE_SQUELCH:
             //            std::cout << "C";
             break;
+        case PKT_TYPE_FILL:
+            break;
         default:
             Serial << "U";//unknown
-            //            for(uint i = 0; i < 3; i++)
-            //            {
-            //                std::cout << "0x" << std::hex << int (buff[i]) << ", ";
-            //            }
+            for(uint i = 0; i < 3; i++)
+            {
+                Serial << "0x" << _HEX(buff[i]) << ", ";
+            }
             break;
         }
     }
@@ -124,12 +127,14 @@ void SlowAmbe::receiveData(uint8_t* buff)
             case PKT_TYPE_SQUELCH:
                 //            std::cout << "c";
                 break;
+            case PKT_TYPE_FILL:
+                break;
             default:
                 Serial << "u";//unknown
-                //            for(uint i = 0; i < 3; i++)
-                //            {
-                //                std::cout << "0x" << std::hex << int(buff[i]) << ", ";
-                //            }
+                for(uint i = 0; i < 3; i++)
+                {
+                    Serial << "0x" << _HEX(buff[i]) << ", ";
+                }
                 break;
             }
         }
@@ -163,11 +168,11 @@ void SlowAmbe::setMSG(uint8_t* msg)
         p_data[1] = msg[0 + offsetInMsg];
         p_data[2] = msg[1 + offsetInMsg];
         Serial << _HEX(data) << endl;
-        //        comBuffer.push(data);
+        comBuffer.push(data);
         p_data[0] = msg[2 + offsetInMsg];
         p_data[1] = msg[3 + offsetInMsg];
         p_data[2] = msg[4 + offsetInMsg];
-        //        comBuffer.push(data);
+        comBuffer.push(data);
         Serial << _HEX(data) << endl;
     }
 }

@@ -1,7 +1,7 @@
 #pragma once
 #include <Stream.h>
 #include <stdint.h>
-//#include <RingBuf.h>
+#include <RingBuf.h>
 
 using uint = unsigned int;
 class SlowAmbe
@@ -27,7 +27,7 @@ public:
     {
         return m_haveMsg;
     }
-    //    RingBuf<AmbeData, 80> comBuffer;
+    RingBuf<AmbeData, 80> comBuffer;
 private:
     Stream* m_outputStream{nullptr};
     uint8_t dStarMsg[DSTAR_MSG_SIZE];
