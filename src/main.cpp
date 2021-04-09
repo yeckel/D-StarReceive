@@ -6,10 +6,9 @@
 #include "Scrambler.h"
 #include "SlowAmbe.h"
 #include "DSTAR.h"
-#include "BitMatcher.h"
 
 #define LORA_CS 18      // GPIO18 - SX1276 CS
-#define LORA_RST 23     // GPIO23 - SX1276 RST
+//#define LORA_RST 23     // GPIO23 - SX1276 RST
 #define LORA_IRQ 26     // GPIO26 - SX1276 IO0
 #define LORA_IO0 LORA_IRQ  // alias
 #define LORA_IO1 33     // GPIO33 - SX1276 IO1 -> wired on pcb AND connected to header pin LORA1
@@ -21,17 +20,16 @@ SX1278 radio = new Module(LORA_CS, LORA_IRQ, LORA_RST, LORA_IO1);
 uint8_t bufferTxRx[BUFSIZE];
 uint8_t history[BUFSIZE * 8];  //buffer for viterbi decoding (large buffer need)
 uint8_t syncWord[] = {0xaa, 0xaa, 0xaa, 0xaa, 0xEC, 0xA0};
-static constexpr uint8_t endSyncData[] = {0xaa, 0xaa, 0xaa, 0xaa, 0x13, 0x5e};
 float f = 434.800f + 0.00244f;//t-beam sx1278 has XTAL offset
 
 volatile bool inSync = false;
-volatile bool receivedPacket = false;
+volatile bool receivedPacket{false};
 
-BitMatcher bm(endSyncData, sizeof(endSyncData));
 uint8_t headerBuff[BitSlicer::HEADER_SIZE];
-uint8_t dataBuff[1024 * BitSlicer::DATA_FRAME_SIZE];
+
 BitSlicer bs;
-BluetoothSerial SerialBT;
+SlowAmbe sa;
+BluetoothSerial serialBT;
 
 void checkLoraState(int state)
 {
@@ -51,8 +49,9 @@ void checkLoraState(int state)
 void receivedSyncWord(void)
 {
     inSync = true;
+    Serial << "RX Started" << endl;
+    digitalWrite(BUILTIN_LED, true);
 }
-
 
 void dataClk()
 {
@@ -61,17 +60,14 @@ void dataClk()
     {
         return;
     }
-    auto isEnd = bm.appendAndCheck(receivedBit);
-    if(isEnd)
+    //    Serial << receivedBit;
+    auto commStopped = bs.appendBit(receivedBit);
+    if(commStopped)
     {
+        Serial << endl << "RX Stopped" << endl;
         inSync = false;
+        digitalWrite(BUILTIN_LED, false);
         receivedPacket = true;
-        bm.reset();
-    }
-    else
-    {
-        bs.appendBit(receivedBit);
-        //        Serial << receivedBit;
     }
 }
 
@@ -106,8 +102,8 @@ void setup()
 {
     Serial.begin(115200);
     pinMode(LED_BUILTIN, OUTPUT);
-    SerialBT.begin("D-Star Beacon");
-    bs.setBuffer(headerBuff, sizeof(headerBuff), dataBuff, sizeof(dataBuff));
+    serialBT.begin("D-Star Beacon");
+    bs.setHeaderBuffer(headerBuff, sizeof(headerBuff));
     Dstar.size_buffer = BUFSIZE;
     pinMode(LORA_IO2, INPUT);
     pinMode(LORA_IO1, INPUT);
@@ -115,6 +111,7 @@ void setup()
     Serial.print(F("[SX1278] Initializing ... "));
     checkLoraState(radio.beginFSK(f, 4.8f, 4.8 * 0.25f, 25.0f, 3, 64, false));
     radio.getFrequencyError(true);
+    sa.setDataOutput(&serialBT);
     /// Uncomment to fine tune the radio and find sx1278 frequency offset
     MorseClient morse(&radio);
     morse.begin(f);
@@ -131,85 +128,38 @@ void setup()
     checkLoraState(radio.setSyncWord(syncWord, sizeof(syncWord)));
 }
 
-void processPacket()
-{
-    auto dataFrames = bs.getDataFrameCount();
-    SlowAmbe sa;
-    for(uint i = 0 ; i < dataFrames; i++)
-    {
-        if(!isSyncFrame(dataBuff + i * BitSlicer::DATA_FRAME_SIZE))
-        {
-            scrambleReverseInput(dataBuff + i * BitSlicer::DATA_FRAME_SIZE, BitSlicer::DATA_FRAME_SIZE);
-            sa.receiveData(dataBuff + i * BitSlicer::DATA_FRAME_SIZE + 9);
-        }
-        //        for(uint j = 0; j < BitSlicer::DATA_FRAME_SIZE; j++)
-        //        {
-        //            Serial << "0x" << _HEX(dataBuff[i * BitSlicer::DATA_FRAME_SIZE + j]) << ",";
-        //        }
-        Serial << endl;
-    }
-    Serial << endl;
-    {
-        uint16_t size{0};
-        uint8_t* dStarData = sa.getDStarGPSData(size);
-        for(uint16_t i = 0; i < size ; i++)
-        {
-            SerialBT.write(dStarData[i]);
-        }
-        Serial << "GPSData size: " << size << " val:";
-        //        for(uint16_t i = 0; i < size ; i++)
-        //        {
-        //            Serial << "0x" << _HEX(dStarData[i]) << ",";
-        //        }
-        //        Serial << endl;
-        for(uint16_t i = 0; i < size ; i++)
-        {
-            if(dStarData[i] < 0x20 || dStarData[i] > 0x7E)
-            {
-                Serial << " 0x" << _HEX(dStarData[i]) << ",";
-            }
-            else
-            {
-                Serial << char(dStarData[i]);
-            }
-        }
-        Serial << endl;
-    }
-    {
-        uint16_t size{0};
-        uint8_t* dStarData = sa.getDStarRFHeader(size);
-        Serial << "Headersize: " << size << " val:";
-        for(uint16_t i = 0; i < size ; i++)
-        {
-            Serial << char(dStarData[i]);
-        }
-        Serial << endl;
-    }
-    {
-        uint16_t size{0};
-        uint8_t* dStarData = sa.getDStarMsg(size);
-        Serial << "MSGsize: " << size << " val:";
-        for(uint16_t i = 0; i < size ; i++)
-        {
-            Serial << char(dStarData[i]);
-        }
-        Serial << endl;
-    }
-}
-
 void loop()
 {
-    digitalWrite(BUILTIN_LED, SerialBT.connected());
     if(receivedPacket)
     {
-        Serial << "Freq: " << radio.getFrequencyError(true) << endl;
+        Serial << "fd: " << radio.getFrequencyError(true) << endl;
         if(bs.haveHeader())
         {
             decodeHeader(headerBuff);
         }
-        processPacket();
         receivedPacket = false;
         bs.reset();
         radio.receiveDirect();//reset IRQ flags
+        if(sa.haveDStarMsg())
+        {
+            auto m = sa.getDStarMsg();
+            Serial << "Msg:\"";
+            for(uint i = 0; i < 20; i++)
+            {
+                Serial << char(m[i]);
+            }
+            Serial << "\"" << endl;
+        }
+        sa.reset();
+    }
+    if(bs.isEvenDataReady())
+    {
+        auto data = bs.getEvenData();
+        sa.receiveData(data + 9);
+    }
+    if(bs.isOddDataReady())
+    {
+        auto data = bs.getOddData();
+        sa.receiveData(data + 9);
     }
 }
