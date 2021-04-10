@@ -1,5 +1,6 @@
 # D-StarReceive
 Simple D-Star reception for TTGO T-Beam ESP32 SX1278 written with Platformio
+**Obsolete repo use Transceiver instead [D-StarBeacon](https://github.com/yeckel/D-StarBeacon) istead.**
 
 * <del> Current version receives a short D-Star transmission and dumps it in hex format into terminal.
 * It uses sx127x FSK Continuous Mode, PreambleDetect and SyncAddress on DIO0, Dclk(DIO1) and Data(DIO2)
