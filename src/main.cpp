@@ -71,17 +71,18 @@ void dataClk()
     }
 }
 
+DSTAR dStar;
 void decodeHeader(uint8_t* bufferConv)
 {
-    Dstar.pseudo_random(bufferConv, 660);
-    Dstar.deInterleave(bufferConv);
-    Dstar.viterbi(bufferConv, history, bufferTxRx); //decode data
+    dStar.pseudo_random(bufferConv, 660);
+    dStar.deInterleave(bufferConv);
+    dStar.viterbi(bufferConv, history, bufferTxRx); //decode data
     Serial << endl;
 
     Serial <<  endl <<  "Nb errors:";
-    Serial << int(Dstar.acc_error[1][0]) << endl;    //print nb errors
+    Serial << int(dStar.acc_error[1][0]) << endl;    //print nb errors
 
-    Serial << "Checking crc: " << Dstar.check_crc(bufferTxRx) << endl;    //crc testing
+    Serial << "Checking crc: " << dStar.check_crc(bufferTxRx) << endl;    //crc testing
 
     Serial << endl << "RF Header:";
     for(uint i = 0; i < sizeof(bufferTxRx); i++)
@@ -104,7 +105,6 @@ void setup()
     pinMode(LED_BUILTIN, OUTPUT);
     serialBT.begin("D-Star Beacon");
     bs.setHeaderBuffer(headerBuff, sizeof(headerBuff));
-    Dstar.size_buffer = BUFSIZE;
     pinMode(LORA_IO2, INPUT);
     pinMode(LORA_IO1, INPUT);
     radio.reset();

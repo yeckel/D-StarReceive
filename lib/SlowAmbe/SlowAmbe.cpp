@@ -57,9 +57,11 @@ void SlowAmbe::sendPlainData(uint8_t* buff, bool isFirst)
     }
 }
 
-SlowAmbe::SlowAmbe()
+void SlowAmbe::pushScrambled(uint32_t data)
 {
-    reset();
+    uint8_t* p_data{(uint8_t*)& data};
+    scrambleReverseOutput(p_data, 3);
+    comBuffer.push(data);
 }
 
 void SlowAmbe::setDataOutput(Stream* outputStream)
@@ -148,7 +150,7 @@ void SlowAmbe::reset()
     memset(dStarMsg, 0x20, sizeof(dStarMsg));//spaces
     posMSG = 0;
     m_isEven = true;//0 is even
-    dataCounter = 0;
+    dataCounter = 21;
     m_haveMsg = false;
 }
 
@@ -167,13 +169,13 @@ void SlowAmbe::setMSG(uint8_t* msg)
         p_data[0] = PKT_TYPE_MSG | (0xFF & i);
         p_data[1] = msg[0 + offsetInMsg];
         p_data[2] = msg[1 + offsetInMsg];
-        Serial << _HEX(data) << endl;
-        comBuffer.push(data);
+        //        Serial << _HEX(data) << endl;
+        pushScrambled(data);
         p_data[0] = msg[2 + offsetInMsg];
         p_data[1] = msg[3 + offsetInMsg];
         p_data[2] = msg[4 + offsetInMsg];
-        comBuffer.push(data);
-        Serial << _HEX(data) << endl;
+        pushScrambled(data);
+        //        Serial << _HEX(data) << endl;
     }
 }
 
@@ -194,15 +196,13 @@ void SlowAmbe::setDPRS(uint8_t* msg, uint size)
                              BYTES_PER_PACKET :
                              size - (neededPackets - 1) * BYTES_PER_PACKET ;
 
-        //        Serial << "bytesInPkt" << _DEC(bytesInPkt) << endl;
-        //        Serial << "offsetInMsg" << _DEC(offsetInMsg) << endl;
         p_data[0] = PKT_TYPE_GPS | (0xFF & bytesInPkt);
         p_data[1] = msg[0 + offsetInMsg];
         if(bytesInPkt >= 2)
         {
             p_data[2] = msg[1 + offsetInMsg];
         }
-        //        comBuffer.push(data);
+        pushScrambled(data);
         //        Serial << _HEX(data) << endl;
         data = 0x66666600u;
         if(bytesInPkt >= 3)
@@ -217,25 +217,25 @@ void SlowAmbe::setDPRS(uint8_t* msg, uint size)
         {
             p_data[2] = msg[4 + offsetInMsg];
         }
-        //        comBuffer.push(data);
+        pushScrambled(data);
         //        Serial << _HEX(data) << endl;
     }
+    //    Serial << "Size" << comBuffer.size() << endl;
 }
 
 void SlowAmbe::getNextData(uint32_t& data)
 {
     //first and every 21st packet is sync one
-    if((dataCounter % 21) == 0)
+    if(dataCounter  == 21)
     {
+        dataCounter = 0;
         data = syncFrame;
-        //        Serial << "Sync";
+        //        Serial << "Sync" << endl;
     }
     else
     {
-        //        comBuffer.pop(data);
-        uint8_t* p_data{(uint8_t*)& data};
-        scrambleReverseOutput(p_data, 3);
-        //        Serial << "Data";
+        comBuffer.lockedPop(data);
+        //        Serial << "Data" << endl;
     }
     dataCounter++;
 }

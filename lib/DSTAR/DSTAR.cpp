@@ -14,15 +14,6 @@
 
 #include "DSTAR.h"
 
-
-DSTAR Dstar;
-
-
-DSTAR::DSTAR()
-{
-
-}
-
 /********************************************************
  * convolve
  ********************************************************/
@@ -70,11 +61,8 @@ void DSTAR::convolution(byte* input, byte* output)        //one byte input, two 
 void DSTAR::pseudo_random(byte* array, int nbBits)
 {
     byte reg = 0xff;
-    byte pseudo{0x00};
-    int n, b, BitsCount;
-    n = 0;
-    BitsCount = 0;
-    b = 7;
+    byte pseudo{0};
+    int n{0}, b{7}, BitsCount{0};
     byte mask = 0x00;
     while(BitsCount < nbBits)
     {
@@ -253,17 +241,28 @@ void DSTAR::fcsbit(byte tbyte)
 
 }
 
-void DSTAR::compute_crc(byte* array)
+uint16_t DSTAR::calcCCITTCRC(uint8_t* buffer, int startpos, int length)
 {
-    crc = 0xffff;
-    for(int n = 0; n < (size_buffer - 3); n ++)
+    int icomcrc = 0xffff;
+    for(int j = startpos; j < startpos + length; j++)
     {
-        for(int m = 0; m < 8; m++)              //each bit must be calculated separatly
+        int ch = buffer[j] & 0xff;
+        for(int i = 0; i < 8; i++)
         {
-            DSTAR::fcsbit(bitRead(array[n], m));
+            bool xorflag = (((icomcrc ^ ch) & 0x01) == 0x01);
+            icomcrc =  icomcrc >> 1;
+            if(xorflag)
+            {
+                icomcrc ^= 0x8408;
+            }
+            ch = ch >> 1;
         }
     }
-    crc ^= 0xffff;
+    return (~icomcrc) & 0xffff;
+}
+void DSTAR::compute_crc(byte* array)
+{
+    crc = calcCCITTCRC(array, 0, size_buffer - 3);
 }
 
 void DSTAR::add_crc(byte* array)          //add crc to inupt array
@@ -438,16 +437,16 @@ byte DSTAR::set_position(byte value, byte next_state, byte current_state)      /
     switch(next_state)
     {
     case 0 :
-        value = value & 0xfc | current_state;
+        value = (value & 0xfc) | current_state;
         break;
     case 1 :
-        value = value & 0xf3 | (current_state << 2);
+        value = (value & 0xf3) | (current_state << 2);
         break;
     case 2 :
-        value = value & 0xcf | (current_state << 4);
+        value = (value & 0xcf) | (current_state << 4);
         break;
     case 3 :
-        value = value & 0x3f | (current_state << 6);
+        value = (value & 0x3f) | (current_state << 6);
         break;
     }
     return  value;
